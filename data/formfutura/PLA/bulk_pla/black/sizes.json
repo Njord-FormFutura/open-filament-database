@@ -1,18 +1,22 @@
 [
     {
       "filament_weight": 1000,
-      "diameter": 1.75
+      "diameter": 1.75,
+      "ean": "8720847069351"
     },
     {
       "filament_weight": 2300,
-      "diameter": 1.75
+      "diameter": 1.75,
+      "ean": "8720847069368"
     },
     {
       "filament_weight": 4500,
-      "diameter": 1.75
+      "diameter": 1.75,
+      "ean": "8720847069375"
     },
     {
       "filament_weight": 8000,
-      "diameter": 1.75
+      "diameter": 1.75,
+      "ean": "8720847069382"
     }
 ]

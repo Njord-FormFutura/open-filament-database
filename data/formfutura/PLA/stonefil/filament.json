@@ -1,6 +1,6 @@
 {
-  "id": "stonefil_pla",
-  "name": "StoneFil PLA",
+  "id": "stonefil",
+  "name": "StoneFil",
   "diameter_tolerance": 0.02,
   "density": 1.24,
   "min_print_temperature": 190,

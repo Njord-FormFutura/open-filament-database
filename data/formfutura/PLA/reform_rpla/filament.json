@@ -1,6 +1,6 @@
 {
-  "id": "reform_r_pla",
-  "name": "ReForm r PLA",
+  "id": "reform_rpla",
+  "name": "ReForm rPLA",
   "diameter_tolerance": 0.02,
   "density": 1.24,
   "min_print_temperature": 190,

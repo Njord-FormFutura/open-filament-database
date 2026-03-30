@@ -1,6 +1,14 @@
 [
   {
     "filament_weight": 1000,
-    "diameter": 1.75
+    "diameter": 1.75,
+    "empty_spool_weight": 165,
+    "article_number": "PLAE-175TUBU-01000"
+  },
+  {
+    "filament_weight": 2300,
+    "diameter": 1.75,
+    "empty_spool_weight": 625,
+    "article_number": "PLAE-175TUBU-02300"
   }
 ]

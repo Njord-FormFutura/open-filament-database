@@ -2,6 +2,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripOfIllegalChars } from '$lib/globalHelpers';
+
 export interface FilamentDatabase {
   brands: Record<string, Brand>;
   stores: Record<string, Store>;
@@ -37,6 +38,7 @@ interface Filament {
 }
 
 interface Color {
+  id: string;
   name: string;
   sizes: Size[];
   variant: Variant;
@@ -58,204 +60,266 @@ interface Variant {
   [key: string]: any;
 }
 
-const allowedImageTypes = "png|jpg|jpeg|svg";
+const allowedImageRegex = /\.(png|jpg|jpeg|svg)$/i;
+const FILE_READ_CONCURRENCY = 5;
+const DIR_CONCURRENCY = 5;
 
-export async function loadFilamentDatabase(dataPath: string, storesPath: string): Promise<FilamentDatabase> {
-  console.log('Running optimized parser!');
+type KeyValueResult<T> = { key: string; value: T } | null;
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let nextIndex = 0;
+
+  async function worker() {
+    while (true) {
+      const currentIndex = nextIndex++;
+      if (currentIndex >= items.length) break;
+      results[currentIndex] = await fn(items[currentIndex], currentIndex);
+    }
+  }
+
+  const workers = Array.from(
+    { length: Math.min(limit, items.length) },
+    () => worker(),
+  );
+
+  await Promise.all(workers);
+  return results;
+}
+
+function compactKeyValueResults<T>(
+  results: KeyValueResult<T>[],
+): Record<string, T> {
+  const record: Record<string, T> = {};
+
+  for (const result of results) {
+    if (result) {
+      record[result.key] = result.value;
+    }
+  }
+
+  return record;
+}
+
+async function readJsonFile<T>(filePath: string): Promise<T> {
+  const content = await readFile(filePath, 'utf-8');
+  return JSON.parse(content) as T;
+}
+
+async function findLogoFile(dirPath: string): Promise<string> {
+  const files = await readdir(dirPath);
+  const logoFile = files.find((file) => allowedImageRegex.test(file));
+  return logoFile ?? '';
+}
+
+async function parseColor(
+  colorPath: string,
+  colorFolderName: string,
+): Promise<KeyValueResult<Color>> {
+  const sizesJsonPath = join(colorPath, 'sizes.json');
+  const variantJsonPath = join(colorPath, 'variant.json');
+
+  if (!existsSync(sizesJsonPath) || !existsSync(variantJsonPath)) {
+    return null;
+  }
+
+  const [sizesData, variantData] = await Promise.all([
+    readJsonFile<Size[]>(sizesJsonPath),
+    readJsonFile<Variant>(variantJsonPath),
+  ]);
+
+  return {
+    key: colorFolderName,
+    value: {
+      id: colorFolderName,
+      name: variantData.name,
+      sizes: sizesData,
+      variant: variantData,
+    },
+  };
+}
+
+async function parseFilament(
+  materialPath: string,
+  filamentFolderName: string,
+): Promise<KeyValueResult<Filament>> {
+  const filamentPath = join(materialPath, filamentFolderName);
+  const filamentJsonPath = join(filamentPath, 'filament.json');
+
+  if (!existsSync(filamentJsonPath)) {
+    return null;
+  }
+
+  const filamentData = await readJsonFile<Filament>(filamentJsonPath);
+
+  const colorFolders = await readdir(filamentPath, { withFileTypes: true });
+  const colorDirents = colorFolders.filter((dirent) => dirent.isDirectory());
+
+  const colorResults = await mapWithConcurrency(
+    colorDirents,
+    DIR_CONCURRENCY,
+    async (colorFolder) => {
+      const colorPath = join(filamentPath, colorFolder.name);
+      return parseColor(colorPath, colorFolder.name);
+    },
+  );
+
+  return {
+    key: filamentFolderName,
+    value: {
+      ...filamentData,
+      id: filamentData.id,
+      name: filamentData.name,
+      colors: compactKeyValueResults(colorResults),
+    },
+  };
+}
+
+async function parseMaterial(
+  brandPath: string,
+  materialFolderName: string,
+): Promise<KeyValueResult<Material>> {
+  const materialPath = join(brandPath, materialFolderName);
+  const materialJsonPath = join(materialPath, 'material.json');
+
+  if (!existsSync(materialJsonPath)) {
+    return null;
+  }
+
+  const materialData = await readJsonFile<Material>(materialJsonPath);
+
+  const filamentFolders = await readdir(materialPath, { withFileTypes: true });
+  const filamentDirents = filamentFolders.filter((dirent) => dirent.isDirectory());
+
+  const filamentResults = await mapWithConcurrency(
+    filamentDirents,
+    DIR_CONCURRENCY,
+    async (filamentFolder) => parseFilament(materialPath, filamentFolder.name),
+  );
+
+  return {
+    key: materialFolderName,
+    value: {
+      ...materialData,
+      material: materialData.material ?? materialFolderName,
+      filaments: compactKeyValueResults(filamentResults),
+    },
+  };
+}
+
+async function parseBrand(
+  dataPath: string,
+  brandFolderName: string,
+): Promise<KeyValueResult<Brand>> {
+  const folderName = stripOfIllegalChars(brandFolderName);
+  const brandPath = join(dataPath, folderName);
+  const brandJsonPath = join(brandPath, 'brand.json');
+
+  if (!existsSync(brandJsonPath)) {
+    return null;
+  }
+
+  const [brandData, logo] = await Promise.all([
+    readJsonFile<Partial<Brand>>(brandJsonPath),
+    findLogoFile(brandPath),
+  ]);
+
+  const materialFolders = await readdir(brandPath, { withFileTypes: true });
+  const materialDirents = materialFolders.filter((dirent) => dirent.isDirectory());
+
+  const materialResults = await mapWithConcurrency(
+    materialDirents,
+    DIR_CONCURRENCY,
+    async (materialFolder) => parseMaterial(brandPath, materialFolder.name),
+  );
+
+  return {
+    key: folderName,
+    value: {
+      id: brandData.id ?? folderName,
+      name: brandData.name ?? folderName,
+      logo,
+      website: brandData.website ?? '',
+      origin: brandData.origin ?? '',
+      materials: compactKeyValueResults(materialResults),
+    },
+  };
+}
+
+async function parseStore(
+  storesPath: string,
+  storeFolderName: string,
+): Promise<KeyValueResult<Store>> {
+  const storePath = join(storesPath, storeFolderName);
+  const storeJsonPath = join(storePath, 'store.json');
+
+  if (!existsSync(storeJsonPath)) {
+    return null;
+  }
+
+  const [storeData, logo] = await Promise.all([
+    readJsonFile<Partial<Store>>(storeJsonPath),
+    findLogoFile(storePath),
+  ]);
+
+  return {
+    key: storeFolderName,
+    value: {
+      id: storeData.id ?? storeFolderName,
+      name: storeData.name ?? storeFolderName,
+      storefront_url: storeData.storefront_url ?? '',
+      logo,
+      ships_from: storeData.ships_from ?? [],
+      ships_to: storeData.ships_to ?? [],
+    },
+  };
+}
+
+export async function loadFilamentDatabase(
+  dataPath: string,
+  storesPath: string,
+): Promise<FilamentDatabase> {
+  console.log('Running optimized parser...');
   const startMem = process.memoryUsage().heapUsed;
-  const brands: Record<string, Brand> = {};
-  const stores: Record<string, Store> = {};
 
   try {
     const brandFolders = await readdir(dataPath, { withFileTypes: true });
     const brandDirents = brandFolders.filter((dirent) => dirent.isDirectory());
 
-    // Process all brands in parallel
-    const brandPromises = brandDirents.map(async (brandFolder) => {
-      const folderName = stripOfIllegalChars(brandFolder.name)
-      const brandPath = join(dataPath, folderName);
-      const brandJsonPath = join(brandPath, 'brand.json');
-
-      if (!existsSync(brandJsonPath)) return null;
-
-      // Read brand data and find logo in parallel
-      const [brandDataBuffer, files] = await Promise.all([
-        readFile(brandJsonPath),
-        readdir(brandPath),
-      ]);
-
-      const brandData = JSON.parse(brandDataBuffer.toString());
-      const logoFile = files.find((file) => /\.(png|jpg|jpeg|svg)$/i.test(file));
-      const logo = logoFile ? logoFile : '';
-
-      // Get material folders
-      const materialFolders = await readdir(brandPath, { withFileTypes: true });
-      const materialDirents = materialFolders.filter((dirent) => dirent.isDirectory());
-
-      // Process all materials in parallel
-      const materialPromises = materialDirents.map(async (materialFolder) => {
-        const materialPath = join(brandPath, materialFolder.name);
-        const materialJsonPath = join(materialPath, 'material.json');
-
-        if (!existsSync(materialJsonPath)) return null;
-
-        const materialData = JSON.parse(await readFile(materialJsonPath, 'utf-8'));
-
-        // Get filament folders
-        const filamentFolders = await readdir(materialPath, { withFileTypes: true });
-        const filamentDirents = filamentFolders.filter((dirent) => dirent.isDirectory());
-
-        // Process all filaments in parallel
-        const filamentPromises = filamentDirents.map(async (filamentFolder) => {
-          const filamentPath = join(materialPath, filamentFolder.name);
-          const filamentJsonPath = join(filamentPath, 'filament.json');
-
-          if (!existsSync(filamentJsonPath)) return null;
-
-          const filamentData = JSON.parse(await readFile(filamentJsonPath, 'utf-8'));
-
-          // Get color folders
-          const colorFolders = await readdir(filamentPath, { withFileTypes: true });
-          const colorDirents = colorFolders.filter((dirent) => dirent.isDirectory());
-
-          // Process all colors in parallel
-          const colorPromises = colorDirents.map(async (colorFolder) => {
-            const colorPath = join(filamentPath, colorFolder.name);
-            const sizesJsonPath = join(colorPath, 'sizes.json');
-            const variantJsonPath = join(colorPath, 'variant.json');
-
-            if (!existsSync(sizesJsonPath) || !existsSync(variantJsonPath)) return null;
-
-            // Read both files in parallel
-            const [sizesBuffer, variantBuffer] = await Promise.all([
-              readFile(sizesJsonPath),
-              readFile(variantJsonPath),
-            ]);
-
-            const sizesData: Size[] = JSON.parse(sizesBuffer.toString());
-            const variantData: Variant = JSON.parse(variantBuffer.toString());
-
-            return {
-              key: colorFolder.name,
-              value: {
-                id: colorFolder.name,
-                name: variantData.name,
-                sizes: sizesData,
-                variant: variantData,
-              },
-            };
-          });
-
-          const colorResults = await Promise.all(colorPromises);
-          const colors: Record<string, Color> = {};
-
-          colorResults.forEach((result) => {
-            if (result) colors[result.key] = result.value;
-          });
-
-          return {
-            key: filamentFolder.name,
-            value: {
-              ...filamentData,
-              id: filamentData.id,
-              name: filamentData.name,
-              colors,
-            },
-          };
-        });
-
-        const filamentResults = await Promise.all(filamentPromises);
-        const filaments: Record<string, Filament> = {};
-
-        filamentResults.forEach((result) => {
-          if (result) filaments[result.key] = result.value;
-        });
-
-        return {
-          key: materialFolder.name,
-          value: {
-            ...materialData,
-            name: materialFolder.name,
-            filaments,
-          },
-        };
-      });
-
-      const materialResults = await Promise.all(materialPromises);
-      const materials: Record<string, Material> = {};
-
-      materialResults.forEach((result) => {
-        if (result) materials[result.key] = result.value;
-      });
-
-      return {
-        key: folderName,
-        value: {
-          id: brandData?.id ?? folderName,
-          name: brandData?.name,
-          logo,
-          website: brandData.website ?? '',
-          origin: brandData.origin ?? '',
-          materials,
-        },
-      };
-    });
-
-    const brandResults = await Promise.all(brandPromises);
-
-    brandResults.forEach((result) => {
-      if (result) brands[result.key] = result.value;
-    });
+    const brandResults = await mapWithConcurrency(
+      brandDirents,
+      FILE_READ_CONCURRENCY,
+      async (brandFolder) => parseBrand(dataPath, brandFolder.name),
+    );
 
     const storesFolders = await readdir(storesPath, { withFileTypes: true });
     const storesDirents = storesFolders.filter((dirent) => dirent.isDirectory());
 
-    const storesPromises = storesDirents.map(async (storeFolder) => {
-      const folderName = storeFolder.name;
-      const storePath = join(storesPath, folderName);
-      const storeJsonPath = join(storePath, "store.json")
+    const storeResults = await mapWithConcurrency(
+      storesDirents,
+      FILE_READ_CONCURRENCY,
+      async (storeFolder) => parseStore(storesPath, storeFolder.name),
+    );
 
-      if (!existsSync(storeJsonPath)) return null;
+    const brands = compactKeyValueResults(brandResults);
+    const stores = compactKeyValueResults(storeResults);
 
-      // Read store data and find logo in parallel
-      const [storeDataBuffer, files] = await Promise.all([
-        readFile(storeJsonPath),
-        readdir(storePath),
-      ]);
-      
-      const storeData = JSON.parse(storeDataBuffer.toString());
-      const logoFile = files.find((file) => /\.(png|jpg|jpeg|svg)$/i.test(file));
-      const logo = logoFile ? logoFile : '';
+    const endMem = process.memoryUsage().heapUsed;
+    console.log(
+      `Filament DB: ${(endMem / 1024 / 1024).toFixed(2)} MB used (${(
+        (endMem - startMem) /
+        1024 /
+        1024
+      ).toFixed(2)} MB delta)`,
+    );
 
-      return {
-        key: folderName,
-        value: {
-          id: storeData?.id ?? folderName,
-          name: storeData?.name ?? folderName,
-          storefront_url: storeData?.storefront_url ?? '',
-          logo,
-          ships_from: storeData?.ships_from ?? [],
-          ships_to: storeData?.ships_to ?? [],
-        },
-      };
-    });
-
-    const storeResults = await Promise.all(storesPromises);
-
-    storeResults.forEach((result) => {
-      if (result) stores[result.key] = result.value;
-    });
+    return { brands, stores };
   } catch (error) {
     console.error('Error loading filament database:', error);
     throw error;
   }
-  const endMem = process.memoryUsage().heapUsed;
-  console.log(
-    `Filament DB: ${(endMem / 1024 / 1024).toFixed(2)} MB used (${(
-      (endMem - startMem) /
-      1024 /
-      1024
-    ).toFixed(2)} MB delta)`,
-  );
-  return { brands, stores };
 }

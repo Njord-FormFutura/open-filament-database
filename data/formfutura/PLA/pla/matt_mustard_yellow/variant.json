@@ -1,9 +1,7 @@
 {
   "id": "matt_mustard_yellow",
   "name": "Matt Mustard Yellow",
-  "color_hex": [
-    "#c2b200"
-  ],
+  "color_hex": "#C2B200",
   "traits": {
     "matte": true,
     "industrially_compostable": true

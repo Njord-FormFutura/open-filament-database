@@ -95,6 +95,18 @@ def merge_json_file(target: Path, source: Path) -> bool:
     return False
 
 
+def paths_overlap(a: Path, b: Path) -> bool:
+    """Check if two paths are the same or one is a parent of the other."""
+    a = a.resolve()
+    b = b.resolve()
+    return a == b or a in b.parents or b in a.parents
+
+
+def merge_has_errors(actions: list[str]) -> bool:
+    """Check if any merge actions indicate failures (skipped/unreadable files)."""
+    return any(a.startswith("Skipped") for a in actions)
+
+
 def merge_trees(target_dir: Path, source_dir: Path, dry_run: bool = False) -> list[str]:
     """Recursively merge source_dir into target_dir.
 
@@ -102,12 +114,19 @@ def merge_trees(target_dir: Path, source_dir: Path, dry_run: bool = False) -> li
     - Non-JSON files (logos, etc.) are copied only if missing in target
     - Directories are created as needed
 
-    Returns a list of action descriptions.
+    Returns a list of action descriptions. Entries starting with "Skipped"
+    indicate failures; callers should check merge_has_errors() before
+    deleting the source.
+
+    Raises ValueError if source and target overlap.
     """
     actions: list[str] = []
 
     if not source_dir.is_dir():
         return actions
+
+    if paths_overlap(target_dir, source_dir):
+        raise ValueError(f"Source and target must not overlap: {source_dir} / {target_dir}")
 
     for source_path in sorted(source_dir.rglob("*")):
         rel = source_path.relative_to(source_dir)

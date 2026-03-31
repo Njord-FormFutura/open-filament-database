@@ -22,7 +22,7 @@ import shutil
 from pathlib import Path
 
 from ofd.base import BaseScript, ScriptResult, register_script
-from ofd.merge import merge_trees
+from ofd.merge import merge_has_errors, merge_trees, paths_overlap
 from ofd.validation import ValidationOrchestrator
 
 
@@ -62,6 +62,12 @@ class MergeDataScript(BaseScript):
 
         if not source.is_dir():
             return ScriptResult(success=False, message=f"Source not found: {source}")
+
+        if paths_overlap(source, target):
+            return ScriptResult(
+                success=False,
+                message=f"Source and target must not overlap: {source} / {target}",
+            )
 
         self.log(f"Merging: {source.name} -> {target.name}")
         if dry_run:
@@ -109,12 +115,15 @@ class MergeDataScript(BaseScript):
                     },
                 )
 
-        # Only delete source after validation passes
+        # Only delete source after validation passes and merge had no errors
         deleted = False
         if delete_source and not dry_run:
-            shutil.rmtree(source)
-            self.log(f"\nDeleted source: {source.name}")
-            deleted = True
+            if merge_has_errors(actions):
+                self.log("\nSource NOT deleted (merge had skipped/unreadable files)")
+            else:
+                shutil.rmtree(source)
+                self.log(f"\nDeleted source: {source.name}")
+                deleted = True
         elif delete_source and dry_run:
             self.log(f"\nWould delete source: {source.name}")
 

@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any
 
 from ofd.base import BaseScript, ScriptResult, register_script
-from ofd.merge import merge_trees
+from ofd.merge import merge_has_errors, merge_trees
 from ofd.validation import ValidationOrchestrator
 
 # The canonical ID pattern from the schemas
@@ -190,6 +190,8 @@ def fix_folder_names(root_dir: Path, dry_run: bool) -> list[str]:
                 actions.append(f"  {fixed_name}/: {ma}")
             if dry_run:
                 actions.append(f"Would merge & delete: {folder.name} -> {fixed_name}")
+            elif merge_has_errors(merge_actions):
+                actions.append(f"NOT deleted: {folder.name} (merge had errors, review above)")
             else:
                 import shutil
 

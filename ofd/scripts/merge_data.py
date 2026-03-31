@@ -76,15 +76,6 @@ class MergeDataScript(BaseScript):
         if not actions:
             self.log("  No changes needed (target already has all data)")
 
-        # Delete source if requested
-        deleted = False
-        if delete_source and not dry_run and actions is not None:
-            shutil.rmtree(source)
-            self.log(f"\nDeleted source: {source.name}")
-            deleted = True
-        elif delete_source and dry_run:
-            self.log(f"\nWould delete source: {source.name}")
-
         # Validate after merge (unless dry-run)
         validation_data = None
         if not dry_run:
@@ -105,15 +96,27 @@ class MergeDataScript(BaseScript):
                 for error in validation_result.errors:
                     self.log(f"  {error}")
 
+                if delete_source:
+                    self.log("\nSource NOT deleted (validation failed)")
+
                 return ScriptResult(
                     success=False,
                     message=f"Merge done but validation failed: {validation_result.error_count} errors",
                     data={
                         "actions": actions,
-                        "source_deleted": deleted,
+                        "source_deleted": False,
                         "validation": validation_data,
                     },
                 )
+
+        # Only delete source after validation passes
+        deleted = False
+        if delete_source and not dry_run:
+            shutil.rmtree(source)
+            self.log(f"\nDeleted source: {source.name}")
+            deleted = True
+        elif delete_source and dry_run:
+            self.log(f"\nWould delete source: {source.name}")
 
         # Summary
         self.log(f"\n{'=' * 40}")

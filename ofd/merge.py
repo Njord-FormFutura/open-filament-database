@@ -123,17 +123,20 @@ def merge_trees(target_dir: Path, source_dir: Path, dry_run: bool = False) -> li
             continue
 
         if source_path.suffix == ".json":
+            source_data = load_json(source_path)
+            if source_data is None:
+                actions.append(f"Skipped (unreadable): {rel}")
+                continue
+
             if not target_path.exists():
                 if dry_run:
                     actions.append(f"Would copy: {rel}")
                 else:
                     target_path.parent.mkdir(parents=True, exist_ok=True)
-                    save_json(target_path, load_json(source_path))
+                    save_json(target_path, source_data)
                     actions.append(f"Copied: {rel}")
             else:
                 if dry_run:
-                    # Check if merge would change anything
-                    source_data = load_json(source_path)
                     target_data = load_json(target_path)
                     if isinstance(target_data, dict) and isinstance(source_data, dict):
                         merged = merge_dicts(target_data, source_data)

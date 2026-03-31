@@ -2,5 +2,9 @@
   "id": "easyfil_e_pla",
   "name": "EasyFil ePLA",
   "diameter_tolerance": 0.02,
-  "density": 1.24
+  "density": 1.24,
+  "print_temp_min": 195,
+  "print_temp_max": 220,
+  "bed_temp_min": 0,
+  "bed_temp_max": 60
 }

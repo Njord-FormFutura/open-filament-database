@@ -21,7 +21,7 @@ import requests
 import yaml
 
 from ofd.base import BaseScript, ScriptResult, register_script
-from ofd.merge import merge_dicts, merge_sizes, save_json as merge_save_json
+from ofd.merge import merge_dicts, merge_sizes
 from ofd.scripts.opt_naming_rules import (
     GENERIC_RENAME_RULES,
     KNOWN_COLORS,

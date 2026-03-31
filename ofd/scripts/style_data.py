@@ -581,7 +581,9 @@ class StyleDataScript(BaseScript):
         self.log("DRY RUN SUMMARY" if dry_run else "STYLING SUMMARY")
         self.log("=" * 60)
         if folder_renames:
-            self.log(f"Folders renamed: {len([r for r in folder_renames if not r.startswith('SKIP')])}")
+            self.log(
+                f"Folders renamed: {len([r for r in folder_renames if not r.startswith('SKIP')])}"
+            )
         self.log(f"Files processed: {total_stats.files_processed}")
         self.log(f"Files modified: {total_stats.files_modified}")
         self.log(f"Files skipped: {total_stats.files_skipped}")

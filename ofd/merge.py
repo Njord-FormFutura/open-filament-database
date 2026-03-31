@@ -52,9 +52,7 @@ def merge_sizes(existing: list[dict], new: list[dict]) -> list[dict]:
     (weight, diameter) key doesn't already exist.
     """
     result = list(existing)
-    existing_keys = {
-        (s.get("filament_weight"), s.get("diameter")) for s in existing
-    }
+    existing_keys = {(s.get("filament_weight"), s.get("diameter")) for s in existing}
     for size in new:
         key = (size.get("filament_weight"), size.get("diameter"))
         if key not in existing_keys:

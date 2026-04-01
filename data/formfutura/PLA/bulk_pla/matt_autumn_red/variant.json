@@ -1,0 +1,10 @@
+{
+  "id": "matt_autumn_red",
+  "name": "Matt Autumn Red",
+  "color_hex": "#AD1A1A",
+  "discontinued": false,
+  "traits": {
+    "matte": true,
+    "industrially_compostable": true
+  }
+}

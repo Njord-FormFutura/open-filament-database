@@ -1,0 +1,9 @@
+{
+  "id": "forest_green",
+  "name": "Forest Green",
+  "color_hex": "#167E1D",
+  "discontinued": false,
+  "traits": {
+    "industrially_compostable": true
+  }
+}

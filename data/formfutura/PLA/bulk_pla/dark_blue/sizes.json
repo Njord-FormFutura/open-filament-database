@@ -5,6 +5,12 @@
     "spool_refill": false,
     "empty_spool_weight": 200,
     "article_number": "BPLA-175DBLU-01000",
-    "discontinued": false
+    "discontinued": false,
+    "purchase_links": [
+      {
+        "store_id": "formfutura",
+        "url": "https://www.formfutura.com/bulk-pla"
+      }
+    ]
   }
 ]

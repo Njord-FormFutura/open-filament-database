@@ -1,10 +1,14 @@
 {
   "id": "asa",
-  "name": "ASA",
-  "diameter_tolerance": 0.02,
-  "density": 1.07,
-  "min_print_temperature": 235,
-  "max_print_temperature": 260,
+  "name": "ApolloX",
+  "diameter_tolerance": 0.05,
+  "density": 1.11,
+  "min_print_temperature": 230,
+  "max_print_temperature": 280,
   "min_bed_temperature": 90,
-  "max_bed_temperature": 110
+  "max_bed_temperature": 110,
+  "min_nozzle_diameter": 0.2,
+  "data_sheet_url": "https://www.formfutura.com/web/content/256142?download=true",
+  "safety_sheet_url": "https://www.formfutura.com/web/content/256141?download=true",
+  "discontinued": false
 }

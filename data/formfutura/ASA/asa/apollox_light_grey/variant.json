@@ -1,5 +1,6 @@
 {
   "id": "apollox_light_grey",
-  "name": "ApolloX Light Grey",
-  "color_hex": "#C3CCD5"
+  "name": "Light Grey",
+  "color_hex": "#C3CCD5",
+  "discontinued": false
 }

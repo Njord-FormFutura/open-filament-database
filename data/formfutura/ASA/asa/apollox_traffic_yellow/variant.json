@@ -1,5 +1,6 @@
 {
   "id": "apollox_traffic_yellow",
-  "name": "ApolloX Traffic Yellow",
-  "color_hex": "#FBE200"
+  "name": "Traffic Yellow",
+  "color_hex": "#FBE200",
+  "discontinued": false
 }

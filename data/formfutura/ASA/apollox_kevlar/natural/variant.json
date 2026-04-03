@@ -1,0 +1,10 @@
+{
+  "id": "natural",
+  "name": "Natural",
+  "color_hex": "#EBEFCC",
+  "discontinued": false,
+  "traits": {
+    "without_pigments": true,
+    "contains_kevlar": true
+  }
+}

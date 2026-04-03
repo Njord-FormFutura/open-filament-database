@@ -2,6 +2,7 @@
   "id": "reform_rapollo_white",
   "name": "ReForm – rApollo White",
   "color_hex": "#FFFFFF",
+  "discontinued": true,
   "traits": {
     "recycled": true
   }

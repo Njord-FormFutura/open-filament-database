@@ -1,0 +1,9 @@
+{
+  "id": "charcoal_grey",
+  "name": "Charcoal Grey",
+  "color_hex": "#666666",
+  "discontinued": false,
+  "traits": {
+    "recycled": true
+  }
+}

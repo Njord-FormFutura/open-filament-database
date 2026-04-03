@@ -2,6 +2,7 @@
   "id": "apollox_kevlar_natural",
   "name": "ApolloX Kevlar Natural",
   "color_hex": "#DFDFD3",
+  "discontinued": true,
   "traits": {
     "abrasive": true,
     "without_pigments": true,

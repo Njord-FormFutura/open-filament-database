@@ -101,6 +101,7 @@
     "filament_weight": 8000,
     "diameter": 2.85,
     "spool_refill": false,
+    "empty_spool_weight": 1040,
     "article_number": "PTGE-285IGRY-08000",
     "discontinued": false,
     "purchase_links": [
